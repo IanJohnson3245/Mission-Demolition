@@ -8,13 +8,19 @@ public class Slingshot : MonoBehaviour {
     [Header("Inscribed")]
     public GameObject projectilePrefab;
     public float velocityMult = 10f;
+    public float bandWidth = 0.15f;
     public GameObject projLinePrefab;
+    public Material bandMat;
 
     [Header("Dynamic")]
     public GameObject launchPoint;
     public Vector3 launchPos;
     public GameObject projectile;
     public bool aimingMode;
+    private Transform leftArm;
+    private Transform rightArm;
+    private LineRenderer leftBand;
+    private LineRenderer rightBand;
 
 
     void Awake(){
@@ -22,6 +28,37 @@ public class Slingshot : MonoBehaviour {
         launchPoint = launchPointTrans.gameObject;
         launchPoint.SetActive(false);
         launchPos = launchPointTrans.position;
+
+        leftArm = transform.Find("LeftArm");
+        rightArm = transform.Find("RightArm");
+        leftBand = MakeBandSegment("LeftBand", bandMat);
+        rightBand = MakeBandSegment("RightBand", bandMat);
+        UpdateBand(launchPos);
+    }
+
+    LineRenderer MakeBandSegment(string name, Material mat){
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+
+        LineRenderer lr = go.AddComponent<LineRenderer>();
+        lr.material = mat;
+        lr.startWidth = lr.endWidth = bandWidth;
+        lr.numCapVertices = 4;
+        lr.useWorldSpace = true;
+        lr.positionCount = 2;
+        return lr;
+    }
+
+    Vector3 ArmTip(Transform arm){
+       return arm.position + arm.up * arm.lossyScale.y; 
+    }
+
+    void UpdateBand(Vector3 projPos){
+        leftBand.SetPosition(0, ArmTip(leftArm));
+        leftBand.SetPosition(1, projPos);
+        rightBand.SetPosition(0, ArmTip(rightArm));
+        rightBand.SetPosition(1, projPos);
+
     }
 
     void Update(){
@@ -38,6 +75,7 @@ public class Slingshot : MonoBehaviour {
         }
         Vector3 projPos = launchPos + mouseDelta;
         projectile.transform.position = projPos;
+        UpdateBand(projPos);
 
         if(Input.GetMouseButtonUp(0)){
             aimingMode = false;
@@ -50,17 +88,17 @@ public class Slingshot : MonoBehaviour {
             FollowCam.POI = projectile;
             Instantiate<GameObject>(projLinePrefab, projectile.transform);
             projectile = null;
+            UpdateBand(launchPos);
+            AudioManager.instance.Play(AudioManager.SoundType.BAND);
             MissionDemolition.SHOT_FIRED();
         }
 
     }
     void OnMouseEnter(){
-       // print("Slingshot:OnMouseEnter");
        launchPoint.SetActive(true);
     }
 
     void OnMouseExit(){
-            //print("Slingshot:OnMouseExit");
        launchPoint.SetActive(false);
     }
 
@@ -69,6 +107,7 @@ public class Slingshot : MonoBehaviour {
         projectile = Instantiate(projectilePrefab) as GameObject;
         projectile.transform.position = launchPos;
         projectile.GetComponent<Rigidbody>().isKinematic = true;
+        AudioManager.instance.Play(AudioManager.SoundType.BAND_DRAW);
 
     }
 }
